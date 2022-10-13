@@ -26,6 +26,16 @@ Currently we have a working python script that can calculate the One Step Markov
 of which phrase follows another. This is a transition matrix. This script was built with
 made up test data and still needs to be confirmed on the real data.
 
+Given a dataframe (example):
+
+```
+string,duration
+ABJR,140
+NFRK,40
+ABIE,50
+```
+
+We can calculate the transition matrix:
 
 ```
 $python transition_matrix.py
