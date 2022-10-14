@@ -16,7 +16,7 @@ complex singer—the domesticated canary— and determine if their songs are inf
 rules. The choice of how long to repeat a given note or which note to choose next may depend on the 
 history of the song. Like most forms of human music, do the songs of canaries contain patterns 
 expressed over long timescales? Are their songs governed by rules that apply to multiple levels of 
-a temporal hierarchy? Students will develop time-series analysis methods such as Markov chain models 
+a temporal hierarchy? We will develop time-series analysis methods such as Markov chain models 
 or Hidden Markov models to build a statistical model of sequences of canary song.
 
 
@@ -35,10 +35,11 @@ NFRK,40
 ABIE,50
 ```
 
-We can calculate the transition matrix:
+We can calculate the transition matrix. With the matrix being *MxM* 
+M = Total Number of Song Characters
 
 ```
-$python transition_matrix.py
+$ python transition_matrix.py
 [[0.         0.         0.         0.         0.         0.
   0.         0.         0.         0.         0.        ]
  [0.         0.         0.         0.33333333 0.         0.
