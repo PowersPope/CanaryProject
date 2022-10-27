@@ -7,6 +7,20 @@
 #import funcitons
 import numpy as np
 import pandas as pd
+import argparse
+import os,sys
+
+def arg_parse() -> object:
+    """ Pass in arguments into the script"""
+    parser = argparser.ArgumentParser(description="In order for this file to work a file dir path is \
+            needed. It will calculate the transition matrix for them.")
+    parser.add_argument('-p', '--path', help='Path to directory with .csv_clean files. Must be path',
+                        type=str, required=True)
+    return parser.parse_args()
+
+# get arguments
+args = arg_parse()
+
 
 
 def generate_occurence_dict(data: pd.DataFrame) -> tuple[dict,set,int]:
@@ -28,7 +42,7 @@ def generate_occurence_dict(data: pd.DataFrame) -> tuple[dict,set,int]:
     string_column: pd.Series = data.loc[:, "string"]
 
     # Apply pre and post tokens to strings in vector
-    string_token: pd.Series = string_column.apply(lambda x: f"*{x}-")
+    string_token: pd.Series = string_column.apply(lambda x: f"!{x}-")
 
     # total number of Tokens
     N: int = 0
@@ -44,8 +58,8 @@ def generate_occurence_dict(data: pd.DataFrame) -> tuple[dict,set,int]:
         for n in range(0, len(element)):
             # running total of token
             N += 1
-            # generate Kmer of size 2
-            k: int = n+2
+            # generate Kmer of size 3
+            k: int = n+3
             token: str = element[n:k]
             # check to see if the token is in the dict and is the last token in string
             if k == len(element) and token in occ_dict.keys():
@@ -116,8 +130,16 @@ def main() -> int:
     One Step Markov Model for song-string generation
     """
 
+    # get list of files in path
+    files: list = os.dirlist(args.path)
+    files_clean: list = [x for x in files if r'_clean' in x]
+
+    # test right now 
+    file_one = os.path.join(args.path, files_clean[0])
+
     # load in data
-    df_data: pd.DataFrame = pd.read_csv("data.csv")
+    # df_data: pd.DataFrame = pd.read_csv(file_one)
+    
 
     # generate the frequency dict and alphabet
     count_dict, alphabet, N_token = generate_occurence_dict(df_data)
