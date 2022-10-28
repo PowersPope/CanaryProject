@@ -26,7 +26,7 @@ args = arg_parse()
 
 
 
-def generate_occurence_dict(data: pd.DataFrame, duration_included: bool = False) -> tuple[dict,set,int]:
+def generate_occurence_dict(data: pd.DataFrame, duration_included: bool) -> tuple[dict,set,int]:
     """
     Input a DataFrame with columns [Song(String), Duration(Int)]
     This function will generate an occurence dict for every unique token that is
@@ -59,12 +59,17 @@ def generate_occurence_dict(data: pd.DataFrame, duration_included: bool = False)
             add_set[0] = '!' + add_set[0]
             add_set[-1] = add_set[-1] + '-'
         else:
+            element = '!' + element + '-'
             add_set: list = list(element)
         # add to set
         set_obj.update(add_set)
         #kmerize the read
+        if args.duration:
+            skips: int = 2
+        else:
+            skips: int = 1
         n: int
-        for n in range(0, len(element)):
+        for n in range(0, len(element),skips):
             # running total of tokens
             N += 1
             # generate Kmer of size 4 to account for duration added char
@@ -73,12 +78,13 @@ def generate_occurence_dict(data: pd.DataFrame, duration_included: bool = False)
             else:
                 # gen Kmer size of 2
                 k: int = n+2
-            if n==0:
+            if (n==0) and (args.duration):
                 token: str = '!'+element[n:k]
-            elif k == len(element):
+            elif (k == len(element)) and (args.duration):
                 token: str = element[n:k]+'-'
             else:
                 token: str = element[n:k]
+            print(token)
             # check to see if the token is in the dict and is the last token in string
             if k == len(element) and token in occ_dict.keys():
                 occ_dict[token] +=1
@@ -123,8 +129,14 @@ def transition_matrix(occ_dict: dict, num_tokens: int, set_alphabet: set) -> np.
         tok: str = dict_keys[num]
         # grab the occurence associated with that token
         occurence: int = occ_array[num]
-        # split the token
-        split_tok: list = list(map(''.join, zip(*[iter(tok)]*2)))
+        print(tok)
+        if r'!' in tok:
+            split_tok: list = [tok[0:3],tok[3:]]
+        elif r'-' in tok:
+            split_tok: list = [tok[0:2],tok[2:]]
+        else:
+            # split the token
+            split_tok: list = list(map(''.join, zip(*[iter(tok)]*2)))
         print(split_tok)
         # grab the index of each of the chars in the token
         row_index: int = alphabet_list.index(split_tok[0])
@@ -161,10 +173,7 @@ def main() -> int:
     ### focused on one file currently
     #####
 
-    if not args.duration:
-        # load in data
-        df_data: pd.DataFrame = pd.read_csv(file_one)
-    else:
+    if args.duration:
         # init dict to hold new dur strings
         string_dict: dict = dict()
         with open(file_one, 'r') as f:
@@ -182,15 +191,19 @@ def main() -> int:
         df_data.reset_index(inplace=True)
         df_data = df_data.rename(columns={'index': 'string', 0:'count'})
         print(df_data)
+    else:
+        # load in data
+        df_data: pd.DataFrame = pd.read_csv(file_one)
 
     #convert to 
 
     # generate the frequency dict and alphabet
-    count_dict, alphabet, N_token = generate_occurence_dict(df_data, duration_included=args.duration)
+    count_dict, alphabet, N_token = generate_occurence_dict(df_data,
+                                                            duration_included=args.duration)
 
     print(count_dict)
-    print(alphabet)
-    print(N_token)
+    # print(alphabet)
+    # print(N_token)
 
     # generate the transition matrix
     # trans_mat, alph_list = transition_matrix(count_dict, N_token, alphabet)
