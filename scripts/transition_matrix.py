@@ -8,14 +8,17 @@
 import numpy as np
 import pandas as pd
 import argparse
-import os,sys
+import os
+from functions import duration_to_str
 
 def arg_parse() -> object:
     """ Pass in arguments into the script"""
-    parser = argparser.ArgumentParser(description="In order for this file to work a file dir path is \
+    parser = argparse.ArgumentParser(description="In order for this file to work a file dir path is \
             needed. It will calculate the transition matrix for them.")
     parser.add_argument('-p', '--path', help='Path to directory with .csv_clean files. Must be path',
                         type=str, required=True)
+    parser.add_argument('-d', '--duration', help='Include Duration? True/False', type=bool,
+                        default=False)
     return parser.parse_args()
 
 # get arguments
@@ -23,7 +26,7 @@ args = arg_parse()
 
 
 
-def generate_occurence_dict(data: pd.DataFrame) -> tuple[dict,set,int]:
+def generate_occurence_dict(data: pd.DataFrame, duration_included: bool = False) -> tuple[dict,set,int]:
     """
     Input a DataFrame with columns [Song(String), Duration(Int)]
     This function will generate an occurence dict for every unique token that is
@@ -32,17 +35,17 @@ def generate_occurence_dict(data: pd.DataFrame) -> tuple[dict,set,int]:
     Ouptut dict with counts
     """
 
-    # Init occurence dict
-    occ_dict: dict = dict()
+    # Init occurence dict with start and stop tokens
+    occ_dict: dict = {'!':0, '-':0}
 
     # create set
-    set_obj: set = set()
+    set_obj: set = set(['!','-'])
 
     # Pull out string column
-    string_column: pd.Series = data.loc[:, "string"]
+    string_token: pd.Series = data.loc[:, "string"]
 
     # Apply pre and post tokens to strings in vector
-    string_token: pd.Series = string_column.apply(lambda x: f"!{x}-")
+    # string_token: pd.Series = string_column.apply(lambda x: f"!{x}-")
 
     # total number of Tokens
     N: int = 0
@@ -51,15 +54,25 @@ def generate_occurence_dict(data: pd.DataFrame) -> tuple[dict,set,int]:
     for i in string_token.index:
         #row string
         element: str = string_token[i]
+        if duration_included:
+            add_set: list = map(''.join, zip(*[iter(element)]*2))
+        else:
+            add_set: list = list(element)
         # add to set
-        set_obj.update(list(element))
+        set_obj.update(add_set)
         #kmerize the read
         n: int
+        # increment start token ! as it is the beginning of the string
+        occ_dict['!'] += 1
         for n in range(0, len(element)):
-            # running total of token
+            # running total of tokens
             N += 1
-            # generate Kmer of size 3
-            k: int = n+3
+            # generate Kmer of size 4 to account for duration added char
+            if duration_included:
+                k: int = n+4
+            else:
+                # gen Kmer size of 2
+                k: int = n+2
             token: str = element[n:k]
             # check to see if the token is in the dict and is the last token in string
             if k == len(element) and token in occ_dict.keys():
@@ -75,6 +88,8 @@ def generate_occurence_dict(data: pd.DataFrame) -> tuple[dict,set,int]:
             # token is not in the dict so add it
             else:
                 occ_dict[token] = 1
+        # increment stop token - as the word is now over
+        occ_dict['-']+=1
 
     return occ_dict, set_obj, N
 
@@ -131,24 +146,53 @@ def main() -> int:
     """
 
     # get list of files in path
-    files: list = os.dirlist(args.path)
-    files_clean: list = [x for x in files if r'_clean' in x]
+    files: list = os.listdir(args.path)
+    files_clean: list = [x for x in files if r'clean_' in x]
 
     # test right now 
     file_one = os.path.join(args.path, files_clean[0])
 
-    # load in data
-    # df_data: pd.DataFrame = pd.read_csv(file_one)
-    
+    #######
+    ### I need to add functionality to load in all files into one df, however for testing I am only
+    ### focused on one file currently
+    #####
+
+    if not args.duration:
+        # load in data
+        df_data: pd.DataFrame = pd.read_csv(file_one)
+    else:
+        # init dict to hold new dur strings
+        string_dict: dict = dict()
+        with open(file_one, 'r') as f:
+            f.readline()
+            for line in f:
+                line = line.rstrip('\n')
+                out: str = duration_to_str(line)
+                if out in string_dict:
+                    string_dict[out] += 1
+                else:
+                    string_dict[out] = 1
+
+        # df_data
+        df_data: pd.DataFrame = pd.DataFrame.from_dict(string_dict, orient='index')
+        df_data.reset_index(inplace=True)
+        df_data = df_data.rename(columns={'index': 'string', '0':'count'})
+        print(df_data)
+
+    #convert to 
 
     # generate the frequency dict and alphabet
-    count_dict, alphabet, N_token = generate_occurence_dict(df_data)
+    count_dict, alphabet, N_token = generate_occurence_dict(df_data, duration_included=args.duration)
+
+    print(count_dict)
+    print(alphabet)
+    print(N_token)
 
     # generate the transition matrix
-    trans_mat, alph_list = transition_matrix(count_dict, N_token, alphabet)
+    # trans_mat, alph_list = transition_matrix(count_dict, N_token, alphabet)
 
-    print(trans_mat)
-    print(alph_list)
+    # print(trans_mat)
+    # print(alph_list)
 
 
     return 0
