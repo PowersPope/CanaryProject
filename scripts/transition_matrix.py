@@ -35,11 +35,11 @@ def generate_occurence_dict(data: pd.DataFrame, duration_included: bool = False)
     Ouptut dict with counts
     """
 
-    # Init occurence dict with start and stop tokens
-    occ_dict: dict = {'!':0, '-':0}
+    # Init occurence dict
+    occ_dict: dict = {}
 
     # create set
-    set_obj: set = set(['!','-'])
+    set_obj: set = set()
 
     # Pull out string column
     string_token: pd.Series = data.loc[:, "string"]
@@ -55,15 +55,15 @@ def generate_occurence_dict(data: pd.DataFrame, duration_included: bool = False)
         #row string
         element: str = string_token[i]
         if duration_included:
-            add_set: list = map(''.join, zip(*[iter(element)]*2))
+            add_set: list = list(map(''.join, zip(*[iter(element)]*2)))
+            add_set[0] = '!' + add_set[0]
+            add_set[-1] = add_set[-1] + '-'
         else:
             add_set: list = list(element)
         # add to set
         set_obj.update(add_set)
         #kmerize the read
         n: int
-        # increment start token ! as it is the beginning of the string
-        occ_dict['!'] += 1
         for n in range(0, len(element)):
             # running total of tokens
             N += 1
@@ -73,7 +73,12 @@ def generate_occurence_dict(data: pd.DataFrame, duration_included: bool = False)
             else:
                 # gen Kmer size of 2
                 k: int = n+2
-            token: str = element[n:k]
+            if n==0:
+                token: str = '!'+element[n:k]
+            elif k == len(element):
+                token: str = element[n:k]+'-'
+            else:
+                token: str = element[n:k]
             # check to see if the token is in the dict and is the last token in string
             if k == len(element) and token in occ_dict.keys():
                 occ_dict[token] +=1
@@ -88,8 +93,6 @@ def generate_occurence_dict(data: pd.DataFrame, duration_included: bool = False)
             # token is not in the dict so add it
             else:
                 occ_dict[token] = 1
-        # increment stop token - as the word is now over
-        occ_dict['-']+=1
 
     return occ_dict, set_obj, N
 
@@ -121,7 +124,8 @@ def transition_matrix(occ_dict: dict, num_tokens: int, set_alphabet: set) -> np.
         # grab the occurence associated with that token
         occurence: int = occ_array[num]
         # split the token
-        split_tok: list = list(tok)
+        split_tok: list = list(map(''.join, zip(*[iter(tok)]*2)))
+        print(split_tok)
         # grab the index of each of the chars in the token
         row_index: int = alphabet_list.index(split_tok[0])
         col_index: int = alphabet_list.index(split_tok[1])
@@ -176,7 +180,7 @@ def main() -> int:
         # df_data
         df_data: pd.DataFrame = pd.DataFrame.from_dict(string_dict, orient='index')
         df_data.reset_index(inplace=True)
-        df_data = df_data.rename(columns={'index': 'string', '0':'count'})
+        df_data = df_data.rename(columns={'index': 'string', 0:'count'})
         print(df_data)
 
     #convert to 
