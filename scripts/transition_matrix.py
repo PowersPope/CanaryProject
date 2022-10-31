@@ -102,7 +102,7 @@ def generate_occurence_dict(data: pd.DataFrame, duration_included: bool) -> tupl
     return occ_dict, set_obj, N
 
 
-def transition_matrix(occ_dict: dict, num_tokens: int, set_alphabet: set) -> np.array:
+def transition_matrix(occ_dict: dict, num_tokens: int, set_alphabet: set, duration: bool) -> np.array:
     """
     Take in the the output from generate_occurence_dict and use that to create a transition matrix.
     We need make a matrix that is MxM M is the lenght of the set_alphabet varialbe.
@@ -121,6 +121,7 @@ def transition_matrix(occ_dict: dict, num_tokens: int, set_alphabet: set) -> np.
 
     dict_keys: list = list(occ_dict.keys())
 
+
     # go through each element and now add in the probabilities
     num: int
     for num in range(0,len(occ_dict),1):
@@ -128,15 +129,18 @@ def transition_matrix(occ_dict: dict, num_tokens: int, set_alphabet: set) -> np.
         tok: str = dict_keys[num]
         # grab the occurence associated with that token
         occurence: int = occ_array[num]
-        if r'!' in tok:
-            split_tok: list = [tok[0:3],tok[3:]]
-        elif r'-' in tok:
-            split_tok: list = [tok[0:2],tok[2:]]
+        if duration:
+            if r'!' in tok:
+                split_tok: list[str] = [tok[0:3],tok[3:]]
+            elif r'-' in tok:
+                split_tok: list[str] = [tok[0:2],tok[2:]]
+            else:
+                # split the token
+                split_tok: list[str] = list(map(''.join, zip(*[iter(tok)]*2)))
+            if r'' in split_tok:
+                break
         else:
-            # split the token
-            split_tok: list = list(map(''.join, zip(*[iter(tok)]*2)))
-        if r'' in split_tok:
-            break
+            split_tok: list[str] = [tok[0], tok[1]]
         # grab the index of each of the chars in the token
         row_index: int = alphabet_list.index(split_tok[0])
         col_index: int = alphabet_list.index(split_tok[1])
@@ -204,7 +208,7 @@ def main() -> int:
     # print(N_token)
 
     # generate the transition matrix
-    trans_mat, alph_list = transition_matrix(count_dict, N_token, alphabet)
+    trans_mat, alph_list = transition_matrix(count_dict, N_token, alphabet, duration=args.duration)
 
     print(trans_mat.sum(axis=1))
     # print(alph_list)
