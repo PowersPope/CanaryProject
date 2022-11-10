@@ -62,6 +62,54 @@ def duration_to_str(line: str) -> str:
     return mutant_str
 
 
+def nstep(N: int, duration: bool) -> int:
+    """
+    Given N return the correct steps/kmer size of the Markov Model.
+
+    For example 2-Step Markov Model needs to have a kmer of 2 which can be
+    written with an i,k of 0,2.
+    This way if you have a word of size M
+    If N <= M then you can take a kmer step within it.
+    """
+    # If duration is added
+    if duration:
+        # mutiply the nstep by 2 to get the correct tokens with their duration token
+        M: int = N * 2
+    else:
+        # return what the step is to add to the base step
+        M: int = N
+
+    return M
+
+def split_token(nstep: int, duration: bool) -> tuple[int, int]:
+    """
+    Return the splitting token size based upon if the duration is True and
+    what nstep is passed into the data.
+    E.g.
+    nstep = 3
+    #### duration == True
+    K = (3 * 2) + 1
+    J = (3 * 2)
+    #### duration == False
+    K = 3 + 1
+    J = 3
+    """
+    # Only special case where * 2 is not appropriate
+    if nstep == 1:
+        N: int = 2
+    else:
+        N: int = nstep
+    # based on if duration is true then we need to multiply by 2 and add 1
+    if duration:
+        K: int = (N * 2) + 1
+        J: int = (N * 2)
+    else:
+        K: int =  N + 1
+        J: int =  N
+    # return the touple of K and J values
+    return (K, J)
+
+
 
 
 
