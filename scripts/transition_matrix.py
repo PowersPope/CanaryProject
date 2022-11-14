@@ -135,29 +135,38 @@ def transition_matrix(occ_dict: dict, num_tokens: int, set_alphabet: set, durati
 
     # go through each element and now add in the probabilities
     num: int
+    print(len(occ_dict))
     for num in range(0,len(occ_dict),1):
         # grab the token
         tok: str = dict_keys[num]
         # grab the occurence associated with that token
         occurence: int = occ_array[num]
+        print(occurence)
         K, J = split_token(nstep=step, duration=duration)
-        if duration:
-            if r'!' in tok:
-                split_tok: list[str] = [tok[0:K],tok[K:]]
-            elif r'-' in tok:
-                split_tok: list[str] = [tok[0:K-1],tok[K-1:]]
-            else:
-                # split the token
-                split_tok: list[str] = list(map(''.join, zip(*[iter(tok)]*J)))
-            if r'' in split_tok:
-                break
+        print(tok)
+        print(K, J)
+    # if duration:
+        if r'!' in tok:
+            split_tok: list[str] = [tok[0:K],tok[K:]]
+        elif r'-' in tok:
+            split_tok: list[str] = [tok[0:K-1],tok[K-1:]]
         else:
-            split_tok: list[str] = [tok[0], tok[1]]
+            # split the token
+            split_tok: list[str] = list(map(''.join, zip(*[iter(tok)]*J)))
+        print('before brake')
+        if r'' in split_tok:
+            continue
+        print(split_tok)
+    # else:
+            # split_tok: list[str] = [tok[0], tok[1]]
         # grab the index of each of the chars in the token
         row_index: int = alphabet_list.index(split_tok[0])
+        print('row_index')
         col_index: int = alphabet_list.index(split_tok[1])
+        print('col_index')
         # add occurence to the transition matrix
         transition_mat[row_index,col_index]: int = occurence
+        print(f'finish {num}')
 
     # we want to suppress the warning as we know some may have nans and be invalid
     np.seterr(invalid='ignore')
