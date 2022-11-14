@@ -1,0 +1,11 @@
+name: canary
+channels:
+  - defaults
+dependencies:
+  - pandas
+  - matplotlib
+  - python=3.9
+  - numpy
+  - seaborn
+  - ipython
+prefix: /Users/andrewpowers/miniconda3/envs/canary
