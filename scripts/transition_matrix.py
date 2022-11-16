@@ -200,9 +200,25 @@ def transition_matrix(occ_dict: dict, num_tokens: int, set_alphabet: set, durati
         # grab the index of each of the chars in the token
         # print(tok)
         # print(split_tok)
-        row_index: int = alphabet_list.index(split_tok[0])
-        col_index: int = alphabet_list.index(split_tok[1])
-        # add occurence to the transition matrix
+        # print(alphabet_list)
+
+        # Make sure that the split_tok has at least 2 elements, since we need a row and col index
+        if len(split_tok) < 2: continue
+        # Niche cases for 3 or above there are a lot of problems with the ending tags, so check these
+        if args.nsteps >= 3:
+            row_index: int = alphabet_list.index(split_tok[0])
+            if (split_tok[1] not in alphabet_list) and (args.duration):
+                if len(split_tok[1]) < args.nsteps * 2: continue
+                col_index: int = alphabet_list.index(split_tok[1]+'-')
+            elif split_tok[1] not in alphabet_list:
+                col_index: int = alphabet_list.index(split_tok[1]+'-')
+            else:
+                col_index: int = alphabet_list.index(split_tok[1])
+
+        else:
+            row_index: int = alphabet_list.index(split_tok[0])
+            col_index: int = alphabet_list.index(split_tok[1])
+            # add occurence to the transition matrix
         transition_mat[row_index,col_index]: int = occurence
 
     # we want to suppress the warning as we know some may have nans and be invalid
@@ -272,7 +288,7 @@ def main() -> int:
                                              step=args.nsteps)
 
     print(trans_mat)
-    print(alph_list)
+    # print(alph_list)
     # print(len(df_data))
     # occ_dict1: dict[str, int] = {'!A': 120, '!F': 100, '!S': 30, 'SA':30, 'FA': 20, 'FS':100,
                                  # 'S-': 100, 'F-': 20, 'AF': 30, 'AS': 30, 'AA':10}
