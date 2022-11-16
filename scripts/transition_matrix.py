@@ -54,13 +54,16 @@ def generate_occurence_dict(data: pd.DataFrame, duration_included: bool, nsteps:
     M: int = nstep(N=nsteps, duration=duration_included)
     K, num_splits = split_token(nstep=nsteps, duration=duration_included)
     # Loop through elements in vector
+    num_i: int = 0
     i: int
     for i in string_token.index:
+        num_i += 1
         #row string
         element: str = string_token[i]
         # print(element)
         # check to make sure that the lines are the correct length if not discard them
-        if len(element) > nsteps+2:
+        if duration_included: nsteps*2
+        if len(element)//2 > nsteps+2:
             if (nsteps == 1) and (duration_included == False):
                 pre_token = '!' + element + '-'
                 add_set: list = list(pre_token)
@@ -72,16 +75,16 @@ def generate_occurence_dict(data: pd.DataFrame, duration_included: bool, nsteps:
                 add_set[-1] = add_set[-1] + '-'
             # add to set
 
-            print('Sending list to set:', add_set)
+            # print('Sending list to set:', add_set)
             set_obj.update(add_set)
             #kmerize the read
             if duration_included:
                 skips: int = 2  # nsteps + 1
             else:
-                skips: int = 1 
+                skips: int = 1
             # run through the string skipping by skips
             n: int
-            for n in range(0, len(element)+2,skips):
+            for n in range(0, len(element),skips): # removed add + 2
                 # running total of tokens
                 N += 1
                 # generate Kmer of size 4 to account for duration added char
@@ -129,9 +132,10 @@ def generate_occurence_dict(data: pd.DataFrame, duration_included: bool, nsteps:
                     occ_dict[token] = 1
         else:
             ##### Switch this to continue
-            break
+            continue
 
-    print(occ_dict)
+    # print(occ_dict)
+    # print(num_i)
     return occ_dict, set_obj, N
 
 
@@ -152,14 +156,12 @@ def transition_matrix(occ_dict: dict, num_tokens: int, set_alphabet: set, durati
 
     # create list of the set to give it an index
     alphabet_list: list = list(set_alphabet)
-    print(alphabet_list)
 
     dict_keys: list = list(occ_dict.keys())
 
 
     # go through each element and now add in the probabilities
     num: int
-    print(len(occ_dict))
     for num in range(0,len(occ_dict),1):
         """
         I need to use alphabet_list instead of dict_keys
@@ -196,6 +198,8 @@ def transition_matrix(occ_dict: dict, num_tokens: int, set_alphabet: set, durati
     # else:
         # split_tok: list[str] = [tok[0], tok[1]]
         # grab the index of each of the chars in the token
+        # print(tok)
+        # print(split_tok)
         row_index: int = alphabet_list.index(split_tok[0])
         col_index: int = alphabet_list.index(split_tok[1])
         # add occurence to the transition matrix
@@ -250,6 +254,7 @@ def main() -> int:
     else:
         # load in data
         df_data: pd.DataFrame = pd.read_csv(file_one)
+    print(files_clean[0])
 
     #convert to 
 
@@ -268,6 +273,7 @@ def main() -> int:
 
     print(trans_mat)
     print(alph_list)
+    # print(len(df_data))
     # occ_dict1: dict[str, int] = {'!A': 120, '!F': 100, '!S': 30, 'SA':30, 'FA': 20, 'FS':100,
                                  # 'S-': 100, 'F-': 20, 'AF': 30, 'AS': 30, 'AA':10}
     # alphabet1: dict[str] = set(['!', '-', 'A', 'F', 'S'])
