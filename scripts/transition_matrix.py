@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import argparse
 import os
-from functions import duration_to_str, split_token, nstep
+from functions import duration_to_str, split_token, nstep, kmerize_string
 
 def arg_parse() -> object:
     """ Pass in arguments into the script"""
@@ -52,46 +52,67 @@ def generate_occurence_dict(data: pd.DataFrame, duration_included: bool, nsteps:
     # total number of Tokens
     N: int = 0
     M: int = nstep(N=nsteps, duration=duration_included)
-    _, num_splits = split_token(nstep=nsteps, duration=duration_included)
+    K, num_splits = split_token(nstep=nsteps, duration=duration_included)
     # Loop through elements in vector
     i: int
     for i in string_token.index:
         #row string
         element: str = string_token[i]
+        # print(element)
         # check to make sure that the lines are the correct length if not discard them
         if len(element) > nsteps+2:
-            if nsteps == 1:
-                element = '!' + element + '-'
-                add_set: list = list(element)
+            if (nsteps == 1) and (duration_included == False):
+                pre_token = '!' + element + '-'
+                add_set: list = list(pre_token)
             else:
-                add_set: list = list(map(''.join, zip(*[iter(element)]*num_splits)))
+                # dur_element: str = '!' + element + '-'
+                add_set: list = kmerize_string(element, (M//2), duration_included)
+                # add_set: list = list(map(''.join, zip(*[iter(element)]*(M//2))))
                 add_set[0] = '!' + add_set[0]
                 add_set[-1] = add_set[-1] + '-'
             # add to set
+
+            print('Sending list to set:', add_set)
             set_obj.update(add_set)
             #kmerize the read
-            if args.duration:
-                skips: int = nsteps + 1
+            if duration_included:
+                skips: int = 2  # nsteps + 1
             else:
-                skips: int = 1
+                skips: int = 1 
             # run through the string skipping by skips
             n: int
-            for n in range(0, len(element),skips):
+            for n in range(0, len(element)+2,skips):
                 # running total of tokens
                 N += 1
                 # generate Kmer of size 4 to account for duration added char
                 k: int = n + M
+                # print(k)
                 # if duration_included:
                     # k: int = n+4
                 # else:
                     # # gen Kmer size of 2
                     # k: int = n+2
-                if (n==0) and (args.duration):
+                # element = '!'+element+'-'
+                if (n==0): # and (args.duration):
                     token: str = '!'+element[n:k]
-                elif (k == len(element)) and (args.duration):
+                elif (k == len(element)): # and (args.duration):
                     token: str = element[n:k]+'-'
                 else:
+                    ##### Checking
                     token: str = element[n:k]
+                # print(token)
+
+                ############### Guessing
+                # split the token up for Nstep
+                # if r'!' in token:
+                    # token1, token2: tuple[str] = tuple(token[0:K],token[K:])
+                # elif r'-' in token:
+                    # token1, token2: tuple[str] = tuple(token[0:K-1],token[K-1:])
+                # else:
+                    # split the tokenen
+                    # token1, token2: list[str] = tuple(map(''.join, zip(*[iter(token)]*J)))
+                ################# End Guessing
+
                 # check to see if the token is in the dict and is the last token in string
                 if k == len(element) and token in occ_dict.keys():
                     occ_dict[token] +=1
@@ -107,8 +128,10 @@ def generate_occurence_dict(data: pd.DataFrame, duration_included: bool, nsteps:
                 else:
                     occ_dict[token] = 1
         else:
+            ##### Switch this to continue
             break
 
+    print(occ_dict)
     return occ_dict, set_obj, N
 
 
@@ -129,6 +152,7 @@ def transition_matrix(occ_dict: dict, num_tokens: int, set_alphabet: set, durati
 
     # create list of the set to give it an index
     alphabet_list: list = list(set_alphabet)
+    print(alphabet_list)
 
     dict_keys: list = list(occ_dict.keys())
 
@@ -137,36 +161,45 @@ def transition_matrix(occ_dict: dict, num_tokens: int, set_alphabet: set, durati
     num: int
     print(len(occ_dict))
     for num in range(0,len(occ_dict),1):
+        """
+        I need to use alphabet_list instead of dict_keys
+        Since the dict keys are alwasy just the particular Nstep phrase and not the combo.
+        """
         # grab the token
         tok: str = dict_keys[num]
         # grab the occurence associated with that token
         occurence: int = occ_array[num]
-        print(occurence)
         K, J = split_token(nstep=step, duration=duration)
-        print(tok)
-        print(K, J)
     # if duration:
-        if r'!' in tok:
-            split_tok: list[str] = [tok[0:K],tok[K:]]
-        elif r'-' in tok:
-            split_tok: list[str] = [tok[0:K-1],tok[K-1:]]
+        if (args.nsteps == 1) and ((r'!' in tok) or (r'-' in tok)) and (args.duration == False):
+            # This needs to be done to handle the niche case of nsteps of 1 with no durations
+            split_tok: list[str] = [tok[0],tok[1]]
+            row_index: int = alphabet_list.index(split_tok[0])
+            col_index: int = alphabet_list.index(split_tok[1])
+            # add occurence to the transition matrix
+            transition_mat[row_index,col_index]: int = occurence
+            split_tok: list[str] = [tok[1],tok[2]]
         else:
-            # split the token
-            split_tok: list[str] = list(map(''.join, zip(*[iter(tok)]*J)))
-        print('before brake')
-        if r'' in split_tok:
-            continue
-        print(split_tok)
+            if r'!' in tok:
+                split_tok: list[str] = [tok[0:K],tok[K:]]
+            elif r'-' in tok:
+                split_tok: list[str] = [tok[0:K-1],tok[K-1:]]
+            else:
+                if duration:
+                    # split the token
+                    # split_tok: list[str] = list(map(''.join, zip(*[iter(tok)]*(J*2)))) # made a change from J to M//2
+                    split_tok: list[str] = kmerize_string(tok, J, duration)
+                else:
+                    split_tok: list[str] = list(map(''.join, zip(*[iter(tok)]*(J)))) # made a change from J to M//2
+            if r'' in split_tok:
+                continue
     # else:
-            # split_tok: list[str] = [tok[0], tok[1]]
+        # split_tok: list[str] = [tok[0], tok[1]]
         # grab the index of each of the chars in the token
         row_index: int = alphabet_list.index(split_tok[0])
-        print('row_index')
         col_index: int = alphabet_list.index(split_tok[1])
-        print('col_index')
         # add occurence to the transition matrix
         transition_mat[row_index,col_index]: int = occurence
-        print(f'finish {num}')
 
     # we want to suppress the warning as we know some may have nans and be invalid
     np.seterr(invalid='ignore')

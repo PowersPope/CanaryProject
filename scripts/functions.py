@@ -74,10 +74,10 @@ def nstep(N: int, duration: bool) -> int:
     # If duration is added
     if duration:
         # mutiply the nstep by 2 to get the correct tokens with their duration token
-        M: int = N * 2
+        M: int = N * 4
     else:
         # return what the step is to add to the base step
-        M: int = N
+        M: int = N * 2
 
     return M
 
@@ -95,14 +95,14 @@ def split_token(nstep: int, duration: bool) -> tuple[int, int]:
     J = 3
     """
     # Only special case where * 2 is not appropriate
-    if nstep == 1:
-        N: int = 2
-    else:
-        N: int = nstep
+    # if nstep == 1:
+        # N: int = 2
+    # else:
+    N: int = nstep
     # based on if duration is true then we need to multiply by 2 and add 1
     if duration:
-        K: int = (N * 2) + 1
-        J: int = (N * 2)
+        K: int = ((N * 2) + 1)
+        J: int = N * 2
     else:
         K: int =  N + 1
         J: int =  N
@@ -110,6 +110,22 @@ def split_token(nstep: int, duration: bool) -> tuple[int, int]:
     return (K, J)
 
 
+def kmerize_string(element: str, kmer_size: int, duration: bool) -> list[str]:
+    """
+    Take the string and kmerize it based upon the desired kmer size
+    """
+    n: int = 0
+    k: int = kmer_size
+    kmer_str_list: list = list()
+    while k <= len(element):
+        kmer_str_list.append(element[n:k])
+        if duration:
+            n+= 2
+            k+= 2
+        else:
+            n+= 1
+            k+= 1
+    return kmer_str_list
 
 
 
