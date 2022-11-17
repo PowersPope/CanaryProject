@@ -28,7 +28,8 @@ args = arg_parse()
 
 
 
-def generate_occurence_dict(data: pd.DataFrame, duration_included: bool, nsteps: int) -> tuple[dict,set,int]:
+def generate_occurence_dict(data: pd.DataFrame, duration_included: bool, nsteps: int,
+                            occ_dict: dict, set_obj: set) -> tuple[dict,set,int]:
     """
     Input a DataFrame with columns [Song(String), Duration(Int)]
     This function will generate an occurence dict for every unique token that is
@@ -38,10 +39,10 @@ def generate_occurence_dict(data: pd.DataFrame, duration_included: bool, nsteps:
     """
 
     # Init occurence dict
-    occ_dict: dict = {}
+    # occ_dict: dict = {}
 
     # create set
-    set_obj: set = set()
+    # set_obj: set = set()
 
     # Pull out string column
     string_token: pd.Series = data.loc[:, "string"]
@@ -243,41 +244,52 @@ def main() -> int:
     files_clean: list = [x for x in files if r'clean_' in x]
 
     # test right now 
-    file_one = os.path.join(args.path, files_clean[0])
+    # file_one = os.path.join(args.path, files_clean[0])
+
+    #Init dict & set
+    occ_dict: dict = dict()
+    set_obj: set = set()
 
     #######
     ### I need to add functionality to load in all files into one df, however for testing I am only
     ### focused on one file currently
     #####
 
-    if args.duration:
-        # init dict to hold new dur strings
-        string_dict: dict = dict()
-        with open(file_one, 'r') as f:
-            f.readline()
-            for line in f:
-                line = line.rstrip('\n')
-                out: str = duration_to_str(line)
-                if out in string_dict:
-                    string_dict[out] += 1
-                else:
-                    string_dict[out] = 1
+    file: str
+    for file_clean in files_clean:
+        file: str = os.path.join(args.path, file_clean)
+        if args.duration:
+            # init dict to hold new dur strings
+            string_dict: dict = dict()
+            # with open(file_one, 'r') as f:
+            with open(file, 'r') as f:
+                f.readline()
+                for line in f:
+                    line = line.rstrip('\n')
+                    out: str = duration_to_str(line)
+                    if out in string_dict:
+                        string_dict[out] += 1
+                    else:
+                        string_dict[out] = 1
 
-        # df_data
-        df_data: pd.DataFrame = pd.DataFrame.from_dict(string_dict, orient='index')
-        df_data.reset_index(inplace=True)
-        df_data = df_data.rename(columns={'index': 'string', 0:'count'})
-    else:
-        # load in data
-        df_data: pd.DataFrame = pd.read_csv(file_one)
-    print(files_clean[0])
+            # df_data
+            df_data: pd.DataFrame = pd.DataFrame.from_dict(string_dict, orient='index')
+            df_data.reset_index(inplace=True)
+            df_data = df_data.rename(columns={'index': 'string', 0:'count'})
+        else:
+            # load in data
+            # df_data: pd.DataFrame = pd.read_csv(file_one)
+            df_data: pd.DataFrame = pd.read_csv(file)
+        # print(files_clean[0])
 
-    #convert to 
+        #convert to 
 
-    # generate the frequency dict and alphabet
-    count_dict, alphabet, N_token = generate_occurence_dict(df_data,
-                                                            duration_included=args.duration,
-                                                            nsteps=args.nsteps)
+        # generate the frequency dict and alphabet
+        count_dict, alphabet, N_token = generate_occurence_dict(df_data,
+                                                                duration_included=args.duration,
+                                                                nsteps=args.nsteps,
+                                                                occ_dict=occ_dict,
+                                                                set_obj=set_obj)
 
     # print(count_dict)
     # print(alphabet)
