@@ -1,6 +1,9 @@
 # Import modules
 import numpy as np
 import pandas as pd
+import os
+import sys
+
 
 
 def duration_to_str(line: str) -> str:
@@ -37,12 +40,13 @@ def duration_to_str(line: str) -> str:
     dur_array: np.array = np.array(dur_list)
     ####
     # Determine the range and then therefore the quantile cuts for the range of this data
-    data_range: np.ndarray = np.ptp(dur_array)
-    cuts: np.ndarray = np.floor(data_range/3)
-    min_data: int = np.min(dur_array)
-    low: int = min_data + cuts
-    med: int = min_data + cuts + cuts
-    high: int = np.max(dur_array)
+    # Don't need this code anymore as I have the hard coded cutoffs now
+    # data_range: np.ndarray = np.ptp(dur_array)
+    # cuts: np.ndarray = np.floor(data_range/3)
+    # min_data: int = np.min(dur_array)
+    low: int = 104 # min_data + cuts
+    med: int = 169 # min_data + cuts + cuts
+    # high: int = np.max(dur_array)
     ####
     # cycle elements in token_str and add duration characters
     n: str
@@ -130,5 +134,35 @@ def kmerize_string(element: str, kmer_size: int, duration: bool) -> list[str]:
 
 
 
-
+##### find the distribution of the data
+def get_distribution()-> tuple[int]:
+    """
+    Take in the durations for each data set and figure out what the low, medium, and high
+    thresholds should be
+    """
+    # grab files
+    path = "../CANARY_CSV_DATA/Laura_CSV/"
+    files: list = os.listdir(path)
+    # Specify the list that will hold all of the numbers
+    duration_total: list = list()
+    # Filter through files
+    file: str
+    for file in files:
+        # We only want clean files
+        if r'clean_' not in file: continue
+        # Grab clean file and put it into a variable for pandas to read from
+        file_path: str = os.path.join(path,file)
+        df: pd.DataFrame = pd.read_csv(file_path)
+        # iter through the duration and separate the strs into ints
+        idx: int
+        row: pd.Series
+        for idx, row in df.iterrows():
+            dur_row: list = row.duration.rstrip("*").split("*")
+            nums: list = [int(x) for x in dur_row]
+            duration_total.extend(nums)
+    # Total pass done
+    duration_array: np.array = np.array(duration_total)
+    bins: np.array = np.split(np.sort(duration_array), 3)
+    low, med, high = np.max(bins[0]), np.max(bins[1]), np.max(bins[2])
+    return (low, med, high)
 
