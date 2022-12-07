@@ -1,8 +1,8 @@
-# Import modules
-import numpy as np
 import pandas as pd
+import numpy as np
 import os
 import sys
+import matplotlib.pyplot as plt
 
 
 
@@ -53,6 +53,7 @@ def duration_to_str(line: str) -> str:
     i: int
     mutant_str: str = ''
     for i,n in enumerate(list(token_str)):
+        # print(i, n)
         num: int = dur_array[i]
         if num <= low:
             new_n: str = n + '#'
@@ -165,4 +166,203 @@ def get_distribution()-> tuple[int]:
     bins: np.array = np.split(np.sort(duration_array), 3)
     low, med, high = np.max(bins[0]), np.max(bins[1]), np.max(bins[2])
     return (low, med, high)
+
+
+#### New Markov Model Approach
+def generate_initial_occurences(df: pd.DataFrame, alphabet_dict: dict,
+                                nsteps: int, duration: bool) -> dict:
+    """
+    Take in a dataframe of strings with or without duration and separate it by the nsteps
+    E.g.:
+    Nsteps: 2
+    !ATGCTABE-
+    When it is the beginning you include the ! at the beginning and don't let it affect
+    the Nstep
+    {
+    !AT: {A:0,T:0,G:1,...,-:0}
+    }
+    """
+    # Init dict
+    freq_dict: dict = dict()
+    # iter through dataframe
+    i: int
+    row: pd.Series
+    for i, row in df.iterrows():
+        # grab the sequence
+        seq: str = row.string + '-'
+        if duration:
+            if len(seq) <= nsteps*2+1: continue
+            # parameters for taking steps
+            if nsteps == 1:
+                k: int = 2
+            else:
+                k: int = nsteps * 2
+            # walk along the word
+            n: int = 0
+            next_char: str = ""
+            while next_char != "-":
+            # for n in range(0, len(seq), 2):
+                # Generate the nstep token given that X0,..Xn
+                if n == 0: # if the first iteration then add a ! at the beginning
+                    token: str = "!" + seq[n:k]
+                else: # if not first then do a normal
+                    token: str = seq[n:k]
+                # The next value which will be incremented in the value
+                next_char: str = seq[k:k+2]
+                # Now check if token is in the freq_dict
+                if token in freq_dict:
+                    freq_dict[token][next_char] += 1
+                else:
+                    freq_dict[token] = dict(zip(alphabet_dict, np.zeros(len(alphabet_dict),dtype=np.int32)))
+                    # niche case that the token hasn't been seen before and the whole thing ends right away
+                    freq_dict[token][next_char] += 1
+                # increment k to keep walking along the sequence and generate tokens
+                n += 2
+                k += 2
+                # if next_char == "-": break
+        else:
+            if len(seq) <= nsteps+1: continue
+            # parameters for taking steps
+            k: int = nsteps
+            # walk along the word
+            n: int = 0
+            next_char: str = ""
+            while next_char != "-":
+                # Generate the nstep token given that X0,..Xn
+                if n == 0: # if the first iteration then add a ! at the beginning
+                    token: str = "!" + seq[n:k]
+                else: # if not first then do a normal
+                    token: str = seq[n:k]
+                # The next value which will be incremented in the value
+                next_char: str = seq[k]
+                # Now check if token is in the freq_dict
+                if token in freq_dict:
+                    freq_dict[token][next_char] += 1
+                else:
+                    freq_dict[token] = dict(zip(alphabet_dict, np.zeros(len(alphabet_dict),dtype=np.int32)))
+                    # niche case that the token hasn't been seen before and the whole thing ends right away
+                    freq_dict[token][next_char] += 1
+                # increment k to keep walking along the sequence and generate tokens
+                k += 1
+                n += 1
+                # print('Before Break Check:', next_char)
+                # if next_char == "-":
+                    # break
+    return freq_dict
+
+def gen_alphabet(df: pd.DataFrame, duration: bool) -> dict:
+    """
+    Take in some dataframe and spit out all of the unique characters that make it up.
+    This will be no duration and including duration. There will be a bool character to split itup.
+    E.g.
+    ---
+    No Duration:
+    ATGBAT -> {'A': 0, 'T': 0, 'G': 0, 'B': 0}
+    ---
+    Duration
+    A*T#G#B*A*T^ -> {'A*': 0, 'T#': 0, 'T^': 0, 'G#': 0, 'B*': 0}
+    """
+    # Init dict
+    alphabet_dict: dict = dict()
+    row: pd.Series
+    # iter through all entries
+    for _, row in df.iterrows():
+        if duration:
+            for elem in list(map(''.join, zip(*[iter(row.string)]*2))):
+                # if the elem isn't in the alphabet_dict keys
+                if elem not in alphabet_dict:
+                    # Init the key and value
+                    alphabet_dict[elem] = 0
+        else:
+            # iter through each char in the string
+            for elem in row.string:
+                # if the elem isn't in the alphabet_dict keys
+                if elem not in alphabet_dict:
+                    # Init the key and value
+                    alphabet_dict[elem] = 0
+    alphabet_dict['-'] = 0
+    return list(alphabet_dict.keys())
+
+
+def calc_loglikelihood(markov: dict, samples: pd.DataFrame, nsteps: int,
+                       duration: bool = False) -> np.array:
+    """
+    Take a sequence and generate the log likelihood of a sequence
+    E.g.
+    Log(P(s1))+log(P(s2|s1))+log(p(s3|s2))+log(p(s4|s3))
+    """
+    print(len(samples))
+    if duration:
+        samples = samples.drop(samples[samples.string.map(len)+2 <= nsteps*2+2].index).reset_index()
+    else:
+        samples = samples.drop(samples[samples.string.map(len)+2 <= nsteps+2].index).reset_index()
+    # init the array to house the data
+    output: np.array = np.zeros(shape=(len(samples),))
+    # iter through the generated data
+    row_idx: int
+    row: pd.Series
+    for row_idx, row in samples.iterrows():
+        # grab mcmc sample
+        sample: str = "!"+row.string+"-"
+        likelihood: int = 0
+        # if we are looking at duration
+        if duration:
+            # calculate the entire step we are taking
+            fullstep: int = (nsteps+1)*2
+            # iter through values
+            for i in range(0, len(sample), 2):
+                # decide the kmer based on if it is the beginng or end of the kmer
+                kmer: str
+                if i == 0: kmer = sample[i:i+fullstep+1]
+                elif i >= len(sample)-fullstep: kmer = sample[i+1:i+fullstep+2]
+                else: kmer = sample[i+1: i+fullstep+1]
+                # now that we have the kmer we have to calculate the log likelihood
+                if r'-' in kmer:
+                    first: str = kmer[:-1]
+                    prediction: str = kmer[-1]
+                    # print(markov[first])
+                    likelihood += np.log((markov[first][prediction]/np.array(list(markov[first].values())).sum()))
+                    break
+                else:
+                    first: str = kmer[:-2]
+                    prediction: str = kmer[-2:]
+                likelihood += np.log((markov[first][prediction]/np.array(list(markov[first].values())).sum()))
+        else:
+            for i in range(0, len(sample), 1):
+                kmer: str
+                if i == 0: kmer = sample[i:i+nsteps+2]
+                elif i >= len(sample)-nsteps: kmer = sample[i+1:i+nsteps+2]
+                else: kmer = sample[i+1: i+nsteps+2]
+                # now that we have the kmer we have to calculate the log likelihood
+                if r'-' in kmer:
+                    first: str = kmer[:-1]
+                    prediction: str = kmer[-1]
+                    likelihood += np.log((markov[first][prediction]/np.array(list(markov[first].values())).sum()))
+                    break
+                else:
+                    first: str = kmer[:-1]
+                    prediction: str = kmer[-1]
+                likelihood += np.log((markov[first][prediction]/np.array(list(markov[first].values())).sum()))
+
+        output[row_idx] = likelihood
+    output[output == float('-inf')] = -1
+    # plt.hist(output, bins=25)
+    # plt.title(f'The Mean Log Likelihood is {np.mean(output)}')
+    # plt.show()
+    return output
+
+
+def shuffle_data(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Take in a dataframe and generate a 80/20 split
+    for train, test data
+    """
+    # shuffle data
+    shuffled: pd.DataFrame = df.sample(frac=1, random_state=32).reset_index()
+    # get lenght of Data
+    N: int = len(shuffled)
+    # get 80 twenty
+    train_num: int = int(np.floor(N*.8))
+    return (shuffled.loc[:train_num,['string']].reset_index(), shuffled.loc[train_num:, ['string']].reset_index())
+
 
